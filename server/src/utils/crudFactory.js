@@ -31,7 +31,12 @@ const crudFactory = (model, options = {}) => {
 
         Object.keys(filters).forEach((key) => {
           if (filters[key] !== undefined && filters[key] !== '') {
-            where[key] = filters[key];
+            const val = filters[key];
+            // Coerce query string booleans and numbers
+            if (val === 'true') where[key] = true;
+            else if (val === 'false') where[key] = false;
+            else if (!isNaN(val) && val !== '') where[key] = Number(val);
+            else where[key] = val;
           }
         });
 
