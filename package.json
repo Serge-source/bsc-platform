@@ -7,7 +7,7 @@
     "dev:server": "cd server && npm run dev",
     "dev:client": "cd client && npm run dev",
     "build": "cd client && npm run build",
-    "start": "cd server && npm start",
+    "start": "cd server && npx prisma migrate deploy && node src/index.js",
     "db:migrate": "cd server && npx prisma migrate deploy",
     "db:generate": "cd server && npx prisma generate",
     "db:seed": "cd server && npx prisma db seed",
