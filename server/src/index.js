@@ -45,6 +45,7 @@ const appraisalsRoutes = require('./routes/appraisals');
 const scenariosRoutes = require('./routes/scenarios');
 
 const app = express();
+app.set('trust proxy', 1); // Railway runs behind a proxy
 const server = http.createServer(app);
 
 // Socket.io for real-time notifications
