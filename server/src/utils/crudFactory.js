@@ -1,6 +1,20 @@
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
+const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/;
+
+// Recursively coerce YYYY-MM-DD strings to Date objects in a plain object
+function coerceDates(obj) {
+  if (obj === null || typeof obj !== 'object' || Array.isArray(obj)) return obj;
+  const out = {};
+  for (const [k, v] of Object.entries(obj)) {
+    if (typeof v === 'string' && DATE_ONLY.test(v)) out[k] = new Date(v + 'T00:00:00.000Z');
+    else if (v !== null && typeof v === 'object' && !Array.isArray(v)) out[k] = coerceDates(v);
+    else out[k] = v;
+  }
+  return out;
+}
+
 /**
  * Creates standard CRUD router handlers scoped to the current tenant.
  * Each handler automatically filters by tenantId from req.tenantId.
@@ -67,7 +81,7 @@ const crudFactory = (model, options = {}) => {
     create: async (req, res, next) => {
       try {
         const item = await prisma[model].create({
-          data: { [tenantField]: req.tenantId, ...req.body },
+          data: { [tenantField]: req.tenantId, ...coerceDates(req.body) },
           include,
         });
         res.status(201).json(item);
@@ -85,7 +99,7 @@ const crudFactory = (model, options = {}) => {
 
         const item = await prisma[model].update({
           where: { id: req.params.id },
-          data: req.body,
+          data: coerceDates(req.body),
           include,
         });
         res.json(item);
