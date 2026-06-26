@@ -1,0 +1,1027 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────────────────────────
+// MULTI-TENANT
+// ─────────────────────────────────────────────
+
+model Tenant {
+  id             String   @id @default(uuid())
+  name           String
+  slug           String   @unique
+  domain         String?  @unique
+  logo           String?
+  primaryColor   String   @default("#1d4ed8")
+  plan           Plan     @default(STARTER)
+  planExpiresAt  DateTime?
+  trialEndsAt    DateTime?
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organizations  Organization[]
+  users          User[]
+  subscriptions  Subscription[]
+  apiKeys        ApiKey[]
+
+  @@map("tenants")
+}
+
+enum Plan {
+  STARTER
+  PROFESSIONAL
+  ENTERPRISE
+  GOVERNMENT
+}
+
+model Subscription {
+  id                 String   @id @default(uuid())
+  tenantId           String
+  stripeCustomerId   String?
+  stripeSubId        String?
+  stripePriceId      String?
+  status             String   @default("active")
+  currentPeriodStart DateTime?
+  currentPeriodEnd   DateTime?
+  cancelAtPeriodEnd  Boolean  @default(false)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("subscriptions")
+}
+
+// ─────────────────────────────────────────────
+// ORGANIZATION & USERS
+// ─────────────────────────────────────────────
+
+model Organization {
+  id          String   @id @default(uuid())
+  tenantId    String
+  name        String
+  description String?
+  mission     String?
+  vision      String?
+  values      String?
+  logo        String?
+  fiscalYear  Int      @default(1)
+  currency    String   @default("USD")
+  timezone    String   @default("UTC")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  tenant      Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  departments Department[]
+  strategies  Strategy[]
+  scorecards  Scorecard[]
+  risks       Risk[]
+  budgets     Budget[]
+
+  @@map("organizations")
+}
+
+model Department {
+  id             String   @id @default(uuid())
+  tenantId       String
+  organizationId String
+  parentId       String?
+  name           String
+  code           String?
+  description    String?
+  managerId      String?
+  costCenter     String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  parent       Department?   @relation("DeptHierarchy", fields: [parentId], references: [id])
+  children     Department[]  @relation("DeptHierarchy")
+  users        User[]
+  scorecards   Scorecard[]
+  kpis         KPI[]
+
+  @@map("departments")
+}
+
+model Role {
+  id          String   @id @default(uuid())
+  tenantId    String
+  name        String
+  description String?
+  isSystem    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  permissions RolePermission[]
+  users       UserRole[]
+
+  @@unique([tenantId, name])
+  @@map("roles")
+}
+
+model Permission {
+  id       String @id @default(uuid())
+  resource String
+  action   String
+  description String?
+
+  roles RolePermission[]
+
+  @@unique([resource, action])
+  @@map("permissions")
+}
+
+model RolePermission {
+  roleId       String
+  permissionId String
+
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+  @@map("role_permissions")
+}
+
+model User {
+  id              String    @id @default(uuid())
+  tenantId        String
+  departmentId    String?
+  email           String
+  password        String
+  firstName       String
+  lastName        String
+  title           String?
+  phone           String?
+  avatar          String?
+  isActive        Boolean   @default(true)
+  emailVerified   Boolean   @default(false)
+  twoFactorSecret String?
+  twoFactorEnabled Boolean  @default(false)
+  lastLoginAt     DateTime?
+  passwordChangedAt DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  tenant     Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  department Department? @relation(fields: [departmentId], references: [id])
+  roles      UserRole[]
+  sessions   Session[]
+  auditLogs  AuditLog[]
+  notifications Notification[]
+  kpiOwner   KPI[]       @relation("KPIOwner")
+  kpiResponsible KPI[]   @relation("KPIResponsible")
+  tasks      Task[]      @relation("TaskAssignee")
+  createdTasks Task[]    @relation("TaskCreator")
+  initiativeOwner Initiative[] @relation("InitiativeOwner")
+  riskOwner  Risk[]      @relation("RiskOwner")
+  meetingAttendances MeetingAttendee[]
+
+  @@unique([tenantId, email])
+  @@map("users")
+}
+
+model UserRole {
+  userId String
+  roleId String
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@id([userId, roleId])
+  @@map("user_roles")
+}
+
+model Session {
+  id        String   @id @default(uuid())
+  userId    String
+  token     String   @unique
+  ipAddress String?
+  userAgent String?
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  tenantId   String
+  userId     String?
+  action     String
+  resource   String
+  resourceId String?
+  oldValue   Json?
+  newValue   Json?
+  ipAddress  String?
+  userAgent  String?
+  createdAt  DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id])
+
+  @@index([tenantId, resource, resourceId])
+  @@map("audit_logs")
+}
+
+model ApiKey {
+  id          String    @id @default(uuid())
+  tenantId    String
+  name        String
+  keyHash     String    @unique
+  lastUsedAt  DateTime?
+  expiresAt   DateTime?
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("api_keys")
+}
+
+// ─────────────────────────────────────────────
+// STRATEGY MANAGEMENT
+// ─────────────────────────────────────────────
+
+model Strategy {
+  id             String   @id @default(uuid())
+  organizationId String
+  name           String
+  description    String?
+  mission        String?
+  vision         String?
+  values         String?
+  startDate      DateTime
+  endDate        DateTime
+  status         StrategyStatus @default(DRAFT)
+  version        Int      @default(1)
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  themes       StrategicTheme[]
+  objectives   StrategicObjective[]
+  scorecards   Scorecard[]
+
+  @@map("strategies")
+}
+
+enum StrategyStatus {
+  DRAFT
+  ACTIVE
+  REVIEW
+  ARCHIVED
+}
+
+model StrategicTheme {
+  id          String   @id @default(uuid())
+  strategyId  String
+  name        String
+  description String?
+  color       String   @default("#3b82f6")
+  order       Int      @default(0)
+  createdAt   DateTime @default(now())
+
+  strategy   Strategy            @relation(fields: [strategyId], references: [id], onDelete: Cascade)
+  objectives StrategicObjective[]
+
+  @@map("strategic_themes")
+}
+
+model StrategicObjective {
+  id          String   @id @default(uuid())
+  strategyId  String
+  themeId     String?
+  perspectiveId String?
+  name        String
+  description String?
+  priority    Priority @default(MEDIUM)
+  status      ObjectiveStatus @default(ACTIVE)
+  weight      Float    @default(1.0)
+  order       Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  strategy    Strategy         @relation(fields: [strategyId], references: [id], onDelete: Cascade)
+  theme       StrategicTheme?  @relation(fields: [themeId], references: [id])
+  perspective Perspective?     @relation(fields: [perspectiveId], references: [id])
+  kpis        KPI[]
+  initiatives Initiative[]
+
+  // Cause-and-effect relationships (strategy map)
+  causes      ObjectiveCauseEffect[] @relation("Cause")
+  effects     ObjectiveCauseEffect[] @relation("Effect")
+
+  @@map("strategic_objectives")
+}
+
+model ObjectiveCauseEffect {
+  id        String @id @default(uuid())
+  causeId   String
+  effectId  String
+  strength  Float  @default(1.0)
+
+  cause  StrategicObjective @relation("Cause", fields: [causeId], references: [id], onDelete: Cascade)
+  effect StrategicObjective @relation("Effect", fields: [effectId], references: [id], onDelete: Cascade)
+
+  @@unique([causeId, effectId])
+  @@map("objective_cause_effects")
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum ObjectiveStatus {
+  ACTIVE
+  COMPLETED
+  SUSPENDED
+  CANCELLED
+}
+
+// ─────────────────────────────────────────────
+// BALANCED SCORECARD
+// ─────────────────────────────────────────────
+
+model Scorecard {
+  id             String        @id @default(uuid())
+  tenantId       String
+  organizationId String
+  departmentId   String?
+  strategyId     String?
+  parentId       String?
+  name           String
+  description    String?
+  type           ScorecardType @default(CORPORATE)
+  period         String
+  year           Int
+  quarter        Int?
+  status         ScorecardStatus @default(DRAFT)
+  overallScore   Float?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  organization Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  department   Department?   @relation(fields: [departmentId], references: [id])
+  strategy     Strategy?     @relation(fields: [strategyId], references: [id])
+  parent       Scorecard?    @relation("ScorecardCascade", fields: [parentId], references: [id])
+  children     Scorecard[]   @relation("ScorecardCascade")
+  perspectives ScorecardPerspective[]
+  reviews      ScorecardReview[]
+
+  @@map("scorecards")
+}
+
+enum ScorecardType {
+  CORPORATE
+  DEPARTMENT
+  PROJECT
+  INDIVIDUAL
+}
+
+enum ScorecardStatus {
+  DRAFT
+  ACTIVE
+  REVIEW
+  APPROVED
+  ARCHIVED
+}
+
+model Perspective {
+  id          String   @id @default(uuid())
+  tenantId    String
+  name        String
+  description String?
+  color       String   @default("#3b82f6")
+  icon        String?
+  order       Int      @default(0)
+  isDefault   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  scorecardPerspectives ScorecardPerspective[]
+  objectives            StrategicObjective[]
+  kpis                  KPI[]
+
+  @@unique([tenantId, name])
+  @@map("perspectives")
+}
+
+model ScorecardPerspective {
+  id            String   @id @default(uuid())
+  scorecardId   String
+  perspectiveId String
+  weight        Float    @default(25.0)
+  score         Float?
+  order         Int      @default(0)
+
+  scorecard   Scorecard   @relation(fields: [scorecardId], references: [id], onDelete: Cascade)
+  perspective Perspective @relation(fields: [perspectiveId], references: [id])
+  kpis        ScorecardKPI[]
+
+  @@unique([scorecardId, perspectiveId])
+  @@map("scorecard_perspectives")
+}
+
+model ScorecardKPI {
+  id                     String @id @default(uuid())
+  scorecardPerspectiveId String
+  kpiId                  String
+  weight                 Float  @default(1.0)
+  order                  Int    @default(0)
+
+  scorecardPerspective ScorecardPerspective @relation(fields: [scorecardPerspectiveId], references: [id], onDelete: Cascade)
+  kpi                  KPI                  @relation(fields: [kpiId], references: [id])
+
+  @@unique([scorecardPerspectiveId, kpiId])
+  @@map("scorecard_kpis")
+}
+
+model ScorecardReview {
+  id          String   @id @default(uuid())
+  scorecardId String
+  reviewedAt  DateTime @default(now())
+  notes       String?
+  score       Float?
+  status      String?
+
+  scorecard Scorecard @relation(fields: [scorecardId], references: [id], onDelete: Cascade)
+
+  @@map("scorecard_reviews")
+}
+
+// ─────────────────────────────────────────────
+// KPI
+// ─────────────────────────────────────────────
+
+model KPI {
+  id              String       @id @default(uuid())
+  tenantId        String
+  perspectiveId   String?
+  objectiveId     String?
+  departmentId    String?
+  ownerId         String?
+  responsibleId   String?
+  name            String
+  description     String?
+  formula         String?
+  unit            String?
+  category        String?
+  dataSource      String?
+  frequency       KPIFrequency @default(MONTHLY)
+  calculationMethod CalculationMethod @default(LAST_VALUE)
+  weight          Float        @default(1.0)
+  target          Float?
+  minimum         Float?
+  maximum         Float?
+  warningLevel    Float?
+  criticalLevel   Float?
+  higherIsBetter  Boolean      @default(true)
+  status          KPIStatus    @default(ACTIVE)
+  showOnDashboard Boolean      @default(true)
+  approvalStatus  ApprovalStatus @default(APPROVED)
+  version         Int          @default(1)
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  perspective Perspective?        @relation(fields: [perspectiveId], references: [id])
+  objective   StrategicObjective? @relation(fields: [objectiveId], references: [id])
+  department  Department?         @relation(fields: [departmentId], references: [id])
+  owner       User?               @relation("KPIOwner", fields: [ownerId], references: [id])
+  responsible User?               @relation("KPIResponsible", fields: [responsibleId], references: [id])
+  values      KPIValue[]
+  scorecardKPIs ScorecardKPI[]
+  dataSources KPIDataSource[]
+  attachments Attachment[]        @relation("KPIAttachment")
+  alerts      KPIAlert[]
+
+  @@map("kpis")
+}
+
+enum KPIFrequency {
+  DAILY
+  WEEKLY
+  MONTHLY
+  QUARTERLY
+  ANNUAL
+}
+
+enum CalculationMethod {
+  LAST_VALUE
+  AVERAGE
+  SUM
+  MAX
+  MIN
+}
+
+enum KPIStatus {
+  ACTIVE
+  INACTIVE
+  UNDER_REVIEW
+}
+
+enum ApprovalStatus {
+  DRAFT
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model KPIValue {
+  id          String   @id @default(uuid())
+  kpiId       String
+  period      String
+  year        Int
+  month       Int?
+  quarter     Int?
+  actual      Float?
+  target      Float?
+  variance    Float?
+  variancePct Float?
+  status      KPIValueStatus @default(ON_TARGET)
+  notes       String?
+  enteredById String?
+  approvedById String?
+  source      String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  kpi KPI @relation(fields: [kpiId], references: [id], onDelete: Cascade)
+
+  @@unique([kpiId, period])
+  @@map("kpi_values")
+}
+
+enum KPIValueStatus {
+  ON_TARGET
+  WARNING
+  CRITICAL
+  EXCEEDED
+  NO_DATA
+}
+
+model KPIDataSource {
+  id         String   @id @default(uuid())
+  kpiId      String
+  type       DataSourceType
+  name       String
+  config     Json
+  schedule   String?
+  isActive   Boolean  @default(true)
+  lastSyncAt DateTime?
+  createdAt  DateTime @default(now())
+
+  kpi KPI @relation(fields: [kpiId], references: [id], onDelete: Cascade)
+
+  @@map("kpi_data_sources")
+}
+
+enum DataSourceType {
+  MANUAL
+  CSV
+  EXCEL
+  REST_API
+  POSTGRESQL
+  MYSQL
+  SQLSERVER
+  ORACLE
+  GOOGLE_SHEETS
+  SAP
+  ERP
+  CRM
+}
+
+model KPIAlert {
+  id          String   @id @default(uuid())
+  kpiId       String
+  type        AlertType
+  message     String?
+  isRead      Boolean  @default(false)
+  triggeredAt DateTime @default(now())
+
+  kpi KPI @relation(fields: [kpiId], references: [id], onDelete: Cascade)
+
+  @@map("kpi_alerts")
+}
+
+enum AlertType {
+  WARNING
+  CRITICAL
+  OVERDUE
+  FORECAST_RISK
+}
+
+// ─────────────────────────────────────────────
+// INITIATIVE / PROJECT MANAGEMENT
+// ─────────────────────────────────────────────
+
+model Initiative {
+  id           String   @id @default(uuid())
+  tenantId     String
+  objectiveId  String?
+  ownerId      String?
+  name         String
+  description  String?
+  type         InitiativeType @default(PROJECT)
+  status       InitiativeStatus @default(PLANNING)
+  priority     Priority @default(MEDIUM)
+  startDate    DateTime?
+  endDate      DateTime?
+  budget       Float?
+  actualCost   Float?
+  completion   Float    @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  objective    StrategicObjective? @relation(fields: [objectiveId], references: [id])
+  owner        User?               @relation("InitiativeOwner", fields: [ownerId], references: [id])
+  milestones   Milestone[]
+  tasks        Task[]
+  risks        InitiativeRisk[]
+  attachments  Attachment[]        @relation("InitiativeAttachment")
+
+  @@map("initiatives")
+}
+
+enum InitiativeType {
+  PROJECT
+  PROGRAM
+  ACTION_PLAN
+}
+
+enum InitiativeStatus {
+  PLANNING
+  IN_PROGRESS
+  ON_HOLD
+  COMPLETED
+  CANCELLED
+}
+
+model Milestone {
+  id           String   @id @default(uuid())
+  initiativeId String
+  name         String
+  description  String?
+  dueDate      DateTime?
+  completedAt  DateTime?
+  status       MilestoneStatus @default(PENDING)
+  order        Int      @default(0)
+
+  initiative Initiative @relation(fields: [initiativeId], references: [id], onDelete: Cascade)
+
+  @@map("milestones")
+}
+
+enum MilestoneStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  OVERDUE
+}
+
+model Task {
+  id           String   @id @default(uuid())
+  tenantId     String
+  initiativeId String?
+  parentId     String?
+  assigneeId   String?
+  creatorId    String?
+  title        String
+  description  String?
+  status       TaskStatus @default(TODO)
+  priority     Priority @default(MEDIUM)
+  dueDate      DateTime?
+  completedAt  DateTime?
+  isRecurring  Boolean  @default(false)
+  recurringRule String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  initiative Initiative? @relation(fields: [initiativeId], references: [id])
+  parent     Task?       @relation("TaskHierarchy", fields: [parentId], references: [id])
+  children   Task[]      @relation("TaskHierarchy")
+  assignee   User?       @relation("TaskAssignee", fields: [assigneeId], references: [id])
+  creator    User?       @relation("TaskCreator", fields: [creatorId], references: [id])
+  comments   TaskComment[]
+
+  @@map("tasks")
+}
+
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  REVIEW
+  DONE
+  CANCELLED
+}
+
+model TaskComment {
+  id        String   @id @default(uuid())
+  taskId    String
+  userId    String?
+  content   String
+  createdAt DateTime @default(now())
+
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@map("task_comments")
+}
+
+// ─────────────────────────────────────────────
+// RISK MANAGEMENT
+// ─────────────────────────────────────────────
+
+model Risk {
+  id             String   @id @default(uuid())
+  tenantId       String
+  organizationId String
+  ownerId        String?
+  category       String?
+  name           String
+  description    String?
+  likelihood     Int      @default(3)
+  impact         Int      @default(3)
+  inherentScore  Int?
+  residualScore  Int?
+  status         RiskStatus @default(OPEN)
+  reviewDate     DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  owner        User?        @relation("RiskOwner", fields: [ownerId], references: [id])
+  controls     RiskControl[]
+  mitigations  RiskMitigation[]
+  kris         KRI[]
+  initiatives  InitiativeRisk[]
+
+  @@map("risks")
+}
+
+enum RiskStatus {
+  OPEN
+  MITIGATED
+  ACCEPTED
+  CLOSED
+}
+
+model RiskControl {
+  id          String @id @default(uuid())
+  riskId      String
+  name        String
+  description String?
+  type        String?
+  effectiveness String?
+
+  risk Risk @relation(fields: [riskId], references: [id], onDelete: Cascade)
+
+  @@map("risk_controls")
+}
+
+model RiskMitigation {
+  id          String   @id @default(uuid())
+  riskId      String
+  action      String
+  ownerId     String?
+  dueDate     DateTime?
+  status      String   @default("OPEN")
+  completedAt DateTime?
+
+  risk Risk @relation(fields: [riskId], references: [id], onDelete: Cascade)
+
+  @@map("risk_mitigations")
+}
+
+model KRI {
+  id        String @id @default(uuid())
+  riskId    String
+  kpiId     String?
+  name      String
+  threshold Float?
+  current   Float?
+
+  risk Risk @relation(fields: [riskId], references: [id], onDelete: Cascade)
+
+  @@map("kris")
+}
+
+model InitiativeRisk {
+  initiativeId String
+  riskId       String
+
+  initiative Initiative @relation(fields: [initiativeId], references: [id], onDelete: Cascade)
+  risk       Risk       @relation(fields: [riskId], references: [id], onDelete: Cascade)
+
+  @@id([initiativeId, riskId])
+  @@map("initiative_risks")
+}
+
+// ─────────────────────────────────────────────
+// BUDGET
+// ─────────────────────────────────────────────
+
+model Budget {
+  id             String   @id @default(uuid())
+  organizationId String
+  departmentId   String?
+  initiativeId   String?
+  name           String
+  year           Int
+  totalAmount    Float
+  spentAmount    Float    @default(0)
+  currency       String   @default("USD")
+  status         String   @default("ACTIVE")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  lines        BudgetLine[]
+
+  @@map("budgets")
+}
+
+model BudgetLine {
+  id          String @id @default(uuid())
+  budgetId    String
+  category    String
+  description String?
+  planned     Float
+  actual      Float  @default(0)
+  month       Int?
+
+  budget Budget @relation(fields: [budgetId], references: [id], onDelete: Cascade)
+
+  @@map("budget_lines")
+}
+
+// ─────────────────────────────────────────────
+// MEETINGS
+// ─────────────────────────────────────────────
+
+model Meeting {
+  id          String   @id @default(uuid())
+  tenantId    String
+  title       String
+  description String?
+  startTime   DateTime
+  endTime     DateTime?
+  location    String?
+  status      MeetingStatus @default(SCHEDULED)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  attendees   MeetingAttendee[]
+  agendaItems AgendaItem[]
+  decisions   MeetingDecision[]
+  actionItems MeetingActionItem[]
+
+  @@map("meetings")
+}
+
+enum MeetingStatus {
+  SCHEDULED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+model MeetingAttendee {
+  meetingId String
+  userId    String
+  attended  Boolean @default(false)
+
+  meeting Meeting @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id])
+
+  @@id([meetingId, userId])
+  @@map("meeting_attendees")
+}
+
+model AgendaItem {
+  id        String @id @default(uuid())
+  meetingId String
+  title     String
+  notes     String?
+  duration  Int?
+  order     Int    @default(0)
+
+  meeting Meeting @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+
+  @@map("agenda_items")
+}
+
+model MeetingDecision {
+  id        String   @id @default(uuid())
+  meetingId String
+  decision  String
+  createdAt DateTime @default(now())
+
+  meeting Meeting @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+
+  @@map("meeting_decisions")
+}
+
+model MeetingActionItem {
+  id          String   @id @default(uuid())
+  meetingId   String
+  description String
+  assigneeId  String?
+  dueDate     DateTime?
+  status      String   @default("OPEN")
+
+  meeting Meeting @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+
+  @@map("meeting_action_items")
+}
+
+// ─────────────────────────────────────────────
+// DOCUMENTS & NOTIFICATIONS
+// ─────────────────────────────────────────────
+
+model Attachment {
+  id         String   @id @default(uuid())
+  tenantId   String
+  name       String
+  url        String
+  size       Int?
+  mimeType   String?
+  category   String?
+  tags       String[]
+  uploadedById String?
+  createdAt  DateTime @default(now())
+
+  kpis        KPI[]        @relation("KPIAttachment")
+  initiatives Initiative[] @relation("InitiativeAttachment")
+
+  @@map("attachments")
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  type      String
+  title     String
+  body      String?
+  link      String?
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRead])
+  @@map("notifications")
+}
+
+// ─────────────────────────────────────────────
+// AI / REPORTS
+// ─────────────────────────────────────────────
+
+model AIConversation {
+  id        String   @id @default(uuid())
+  tenantId  String
+  userId    String?
+  title     String?
+  messages  Json     @default("[]")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("ai_conversations")
+}
+
+model Report {
+  id          String   @id @default(uuid())
+  tenantId    String
+  name        String
+  type        String
+  format      String   @default("PDF")
+  config      Json     @default("{}")
+  schedule    String?
+  lastRunAt   DateTime?
+  fileUrl     String?
+  createdById String?
+  createdAt   DateTime @default(now())
+
+  @@map("reports")
+}
+
+model Dashboard {
+  id       String @id @default(uuid())
+  tenantId String
+  userId   String?
+  name     String
+  isDefault Boolean @default(false)
+  layout   Json   @default("[]")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("dashboards")
+}
