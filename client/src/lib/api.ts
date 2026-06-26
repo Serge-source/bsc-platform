@@ -82,6 +82,85 @@ export const aiApi = {
   generateReport: (type: string, period?: string) => api.post('/ai/generate-report', { type, period }),
   forecast: (kpiId: string, periods?: number) => api.post('/ai/forecast', { kpiId, periods }),
   generateStrategy: (data: unknown) => api.post('/ai/generate-strategy', data),
+  copilot: (question: string, type?: string) => api.post('/ai/copilot', { question, type }),
+  conversations: () => api.get('/ai/conversations'),
+}
+
+export const okrApi = {
+  cycles: () => api.get('/okrs/cycles'),
+  createCycle: (data: unknown) => api.post('/okrs/cycles', data),
+  updateCycle: (id: string, data: unknown) => api.put(`/okrs/cycles/${id}`, data),
+  deleteCycle: (id: string) => api.delete(`/okrs/cycles/${id}`),
+  objectives: (cycleId?: string) => api.get('/okrs/objectives', { params: cycleId ? { cycleId } : {} }),
+  createObjective: (data: unknown) => api.post('/okrs/objectives', data),
+  updateObjective: (id: string, data: unknown) => api.put(`/okrs/objectives/${id}`, data),
+  deleteObjective: (id: string) => api.delete(`/okrs/objectives/${id}`),
+  createKeyResult: (objId: string, data: unknown) => api.post(`/okrs/objectives/${objId}/key-results`, data),
+  updateKeyResult: (id: string, data: unknown) => api.put(`/okrs/key-results/${id}`, data),
+  deleteKeyResult: (id: string) => api.delete(`/okrs/key-results/${id}`),
+  addCheckIn: (krId: string, data: unknown) => api.post(`/okrs/key-results/${krId}/check-ins`, data),
+}
+
+export const portfolioApi = {
+  list: () => api.get('/portfolio'),
+  create: (data: unknown) => api.post('/portfolio', data),
+  update: (id: string, data: unknown) => api.put(`/portfolio/${id}`, data),
+  delete: (id: string) => api.delete(`/portfolio/${id}`),
+  summary: () => api.get('/portfolio/summary'),
+  createProgram: (data: unknown) => api.post('/portfolio/programs', data),
+  updateProgram: (id: string, data: unknown) => api.put(`/portfolio/programs/${id}`, data),
+  deleteProgram: (id: string) => api.delete(`/portfolio/programs/${id}`),
+  createProject: (data: unknown) => api.post('/portfolio/projects', data),
+  updateProject: (id: string, data: unknown) => api.put(`/portfolio/projects/${id}`, data),
+  deleteProject: (id: string) => api.delete(`/portfolio/projects/${id}`),
+  addMilestone: (projectId: string, data: unknown) => api.post(`/portfolio/projects/${projectId}/milestones`, data),
+  updateMilestone: (id: string, data: unknown) => api.put(`/portfolio/milestones/${id}`, data),
+}
+
+export const bpmApi = {
+  list: () => api.get('/bpm'),
+  create: (data: unknown) => api.post('/bpm', data),
+  update: (id: string, data: unknown) => api.put(`/bpm/${id}`, data),
+  delete: (id: string) => api.delete(`/bpm/${id}`),
+  addStep: (processId: string, data: unknown) => api.post(`/bpm/${processId}/steps`, data),
+  updateStep: (id: string, data: unknown) => api.put(`/bpm/steps/${id}`, data),
+  deleteStep: (id: string) => api.delete(`/bpm/steps/${id}`),
+}
+
+export const grcApi = {
+  policies: () => api.get('/grc/policies'),
+  createPolicy: (data: unknown) => api.post('/grc/policies', data),
+  updatePolicy: (id: string, data: unknown) => api.put(`/grc/policies/${id}`, data),
+  deletePolicy: (id: string) => api.delete(`/grc/policies/${id}`),
+  addRequirement: (policyId: string, data: unknown) => api.post(`/grc/policies/${policyId}/requirements`, data),
+  updateRequirement: (id: string, data: unknown) => api.put(`/grc/requirements/${id}`, data),
+  deleteRequirement: (id: string) => api.delete(`/grc/requirements/${id}`),
+  auditItems: () => api.get('/grc/audit'),
+  createAuditItem: (data: unknown) => api.post('/grc/audit', data),
+  updateAuditItem: (id: string, data: unknown) => api.put(`/grc/audit/${id}`, data),
+  deleteAuditItem: (id: string) => api.delete(`/grc/audit/${id}`),
+  summary: () => api.get('/grc/summary'),
+}
+
+export const appraisalApi = {
+  cycles: () => api.get('/appraisals/cycles'),
+  createCycle: (data: unknown) => api.post('/appraisals/cycles', data),
+  updateCycle: (id: string, data: unknown) => api.put(`/appraisals/cycles/${id}`, data),
+  forms: (params?: Record<string, unknown>) => api.get('/appraisals/forms', { params }),
+  createForm: (data: unknown) => api.post('/appraisals/forms', data),
+  updateForm: (id: string, data: unknown) => api.put(`/appraisals/forms/${id}`, data),
+}
+
+export const scenarioApi = {
+  list: () => api.get('/scenarios'),
+  create: (data: unknown) => api.post('/scenarios', data),
+  update: (id: string, data: unknown) => api.put(`/scenarios/${id}`, data),
+  delete: (id: string) => api.delete(`/scenarios/${id}`),
+  addAssumption: (id: string, data: unknown) => api.post(`/scenarios/${id}/assumptions`, data),
+  updateAssumption: (id: string, data: unknown) => api.put(`/scenarios/assumptions/${id}`, data),
+  deleteAssumption: (id: string) => api.delete(`/scenarios/assumptions/${id}`),
+  addKpiImpact: (id: string, data: unknown) => api.post(`/scenarios/${id}/kpi-impacts`, data),
+  analyze: (id: string) => api.post(`/scenarios/${id}/analyze`),
 }
 
 export const userApi = {

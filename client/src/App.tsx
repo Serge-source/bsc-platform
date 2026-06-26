@@ -16,6 +16,14 @@ import RolesPage from './pages/RolesPage'
 import SettingsPage from './pages/SettingsPage'
 import AIAssistantPage from './pages/AIAssistantPage'
 import MeetingsPage from './pages/MeetingsPage'
+import OKRsPage from './pages/OKRsPage'
+import PortfolioPage from './pages/PortfolioPage'
+import BPMPage from './pages/BPMPage'
+import GRCPage from './pages/GRCPage'
+import AppraisalsPage from './pages/AppraisalsPage'
+import ScenarioPlanningPage from './pages/ScenarioPlanningPage'
+import BIPage from './pages/BIPage'
+import AICopilotPage from './pages/AICopilotPage'
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const user = useAuthStore((s) => s.user)
@@ -53,6 +61,14 @@ export default function App() {
           <Route path="meetings" element={<NavRoute perm="meetings"><MeetingsPage /></NavRoute>} />
           <Route path="reports" element={<NavRoute perm="reports"><ReportsPage /></NavRoute>} />
           <Route path="ai" element={<NavRoute perm="ai"><AIAssistantPage /></NavRoute>} />
+          <Route path="okrs" element={<NavRoute perm="okrs"><OKRsPage /></NavRoute>} />
+          <Route path="portfolio" element={<NavRoute perm="portfolio"><PortfolioPage /></NavRoute>} />
+          <Route path="bpm" element={<NavRoute perm="bpm"><BPMPage /></NavRoute>} />
+          <Route path="grc" element={<NavRoute perm="grc"><GRCPage /></NavRoute>} />
+          <Route path="appraisals" element={<NavRoute perm="appraisals"><AppraisalsPage /></NavRoute>} />
+          <Route path="scenarios" element={<NavRoute perm="scenarios"><ScenarioPlanningPage /></NavRoute>} />
+          <Route path="bi" element={<NavRoute perm="bi"><BIPage /></NavRoute>} />
+          <Route path="copilot" element={<NavRoute perm="ai"><AICopilotPage /></NavRoute>} />
           <Route path="users" element={<NavRoute perm="users"><UsersPage /></NavRoute>} />
           <Route path="roles" element={<NavRoute perm="roles"><RolesPage /></NavRoute>} />
           <Route path="settings" element={<NavRoute perm="settings"><SettingsPage /></NavRoute>} />

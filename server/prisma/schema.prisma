@@ -181,6 +181,7 @@ model User {
   initiativeOwner Initiative[] @relation("InitiativeOwner")
   riskOwner  Risk[]      @relation("RiskOwner")
   meetingAttendances MeetingAttendee[]
+  appraisalForms     AppraisalForm[]    @relation("EmployeeAppraisals")
 
   @@unique([tenantId, email])
   @@map("users")
@@ -503,6 +504,7 @@ model KPI {
   dataSources KPIDataSource[]
   attachments Attachment[]        @relation("KPIAttachment")
   alerts      KPIAlert[]
+  scenarioImpacts ScenarioKPIImpact[]
 
   @@map("kpis")
 }
@@ -1024,4 +1026,323 @@ model Dashboard {
   updatedAt DateTime @updatedAt
 
   @@map("dashboards")
+}
+
+// ═════════════════════════════════════════════
+// OKR MODULE
+// ═════════════════════════════════════════════
+
+model OKRCycle {
+  id          String   @id @default(uuid())
+  tenantId    String
+  name        String
+  description String?
+  type        String   @default("QUARTERLY")
+  startDate   DateTime
+  endDate     DateTime
+  status      String   @default("ACTIVE")
+  createdAt   DateTime @default(now())
+  objectives  OKRObjective[]
+  @@map("okr_cycles")
+}
+
+model OKRObjective {
+  id          String   @id @default(uuid())
+  tenantId    String
+  cycleId     String
+  ownerId     String?
+  title       String
+  description String?
+  level       String   @default("COMPANY")
+  status      String   @default("ON_TRACK")
+  progress    Float    @default(0)
+  createdAt   DateTime @default(now())
+  cycle       OKRCycle @relation(fields: [cycleId], references: [id], onDelete: Cascade)
+  keyResults  OKRKeyResult[]
+  @@map("okr_objectives")
+}
+
+model OKRKeyResult {
+  id          String   @id @default(uuid())
+  objectiveId String
+  title       String
+  description String?
+  type        String   @default("NUMERIC")
+  unit        String?
+  baseline    Float    @default(0)
+  target      Float    @default(100)
+  current     Float    @default(0)
+  status      String   @default("ON_TRACK")
+  createdAt   DateTime @default(now())
+  objective   OKRObjective @relation(fields: [objectiveId], references: [id], onDelete: Cascade)
+  checkIns    OKRCheckIn[]
+  @@map("okr_key_results")
+}
+
+model OKRCheckIn {
+  id          String   @id @default(uuid())
+  keyResultId String
+  value       Float
+  confidence  Int      @default(7)
+  notes       String?
+  createdAt   DateTime @default(now())
+  keyResult   OKRKeyResult @relation(fields: [keyResultId], references: [id], onDelete: Cascade)
+  @@map("okr_check_ins")
+}
+
+// ═════════════════════════════════════════════
+// PORTFOLIO / PROGRAM / PROJECT (PPM)
+// ═════════════════════════════════════════════
+
+model Portfolio {
+  id          String   @id @default(uuid())
+  tenantId    String
+  name        String
+  description String?
+  status      String   @default("ACTIVE")
+  budget      Float?
+  managerId   String?
+  startDate   DateTime?
+  endDate     DateTime?
+  createdAt   DateTime @default(now())
+  programs    PortfolioProgram[]
+  @@map("portfolios")
+}
+
+model PortfolioProgram {
+  id          String   @id @default(uuid())
+  tenantId    String
+  portfolioId String?
+  name        String
+  description String?
+  status      String   @default("ACTIVE")
+  startDate   DateTime?
+  endDate     DateTime?
+  budget      Float?
+  managerId   String?
+  createdAt   DateTime @default(now())
+  portfolio   Portfolio? @relation(fields: [portfolioId], references: [id])
+  projects    PortfolioProject[]
+  @@map("portfolio_programs")
+}
+
+model PortfolioProject {
+  id          String   @id @default(uuid())
+  tenantId    String
+  programId   String?
+  name        String
+  description String?
+  status      String   @default("PLANNING")
+  priority    String   @default("MEDIUM")
+  startDate   DateTime?
+  endDate     DateTime?
+  budget      Float?
+  spent       Float    @default(0)
+  progress    Float    @default(0)
+  managerId   String?
+  createdAt   DateTime @default(now())
+  program     PortfolioProgram? @relation(fields: [programId], references: [id])
+  milestones  PPMMilestone[]
+  @@map("portfolio_projects")
+}
+
+model PPMMilestone {
+  id          String   @id @default(uuid())
+  projectId   String
+  name        String
+  dueDate     DateTime?
+  status      String   @default("PENDING")
+  completedAt DateTime?
+  project     PortfolioProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  @@map("ppm_milestones")
+}
+
+// ═════════════════════════════════════════════
+// BPM — BUSINESS PROCESS MANAGEMENT
+// ═════════════════════════════════════════════
+
+model BusinessProcess {
+  id          String   @id @default(uuid())
+  tenantId    String
+  name        String
+  description String?
+  category    String?
+  owner       String?
+  status      String   @default("ACTIVE")
+  frequency   String?
+  sla         String?
+  maturity    Int      @default(1)
+  createdAt   DateTime @default(now())
+  steps       ProcessStep[]
+  @@map("business_processes")
+}
+
+model ProcessStep {
+  id          String   @id @default(uuid())
+  processId   String
+  name        String
+  description String?
+  responsible String?
+  duration    String?
+  order       Int      @default(0)
+  type        String   @default("MANUAL")
+  process     BusinessProcess @relation(fields: [processId], references: [id], onDelete: Cascade)
+  @@map("process_steps")
+}
+
+// ═════════════════════════════════════════════
+// GRC — GOVERNANCE, RISK & COMPLIANCE
+// ═════════════════════════════════════════════
+
+model GovernancePolicy {
+  id            String   @id @default(uuid())
+  tenantId      String
+  title         String
+  description   String?
+  category      String?
+  status        String   @default("DRAFT")
+  effectiveDate DateTime?
+  reviewDate    DateTime?
+  owner         String?
+  version       String   @default("1.0")
+  createdAt     DateTime @default(now())
+  requirements  ComplianceRequirement[]
+  @@map("governance_policies")
+}
+
+model ComplianceRequirement {
+  id          String   @id @default(uuid())
+  policyId    String
+  tenantId    String
+  title       String
+  description String?
+  status      String   @default("PENDING")
+  evidence    String?
+  dueDate     DateTime?
+  assignedTo  String?
+  createdAt   DateTime @default(now())
+  policy      GovernancePolicy @relation(fields: [policyId], references: [id], onDelete: Cascade)
+  @@map("compliance_requirements")
+}
+
+model AuditItem {
+  id             String   @id @default(uuid())
+  tenantId       String
+  title          String
+  category       String?
+  status         String   @default("OPEN")
+  priority       String   @default("MEDIUM")
+  findings       String?
+  recommendation String?
+  assignedTo     String?
+  dueDate        DateTime?
+  closedAt       DateTime?
+  createdAt      DateTime @default(now())
+  @@map("audit_items")
+}
+
+// ═════════════════════════════════════════════
+// PERFORMANCE APPRAISAL
+// ═════════════════════════════════════════════
+
+model AppraisalCycle {
+  id        String   @id @default(uuid())
+  tenantId  String
+  name      String
+  year      Int
+  period    String   @default("ANNUAL")
+  status    String   @default("DRAFT")
+  startDate DateTime
+  endDate   DateTime
+  createdAt DateTime @default(now())
+  forms     AppraisalForm[]
+  @@map("appraisal_cycles")
+}
+
+model AppraisalForm {
+  id                   String   @id @default(uuid())
+  tenantId             String
+  cycleId              String
+  employeeId           String
+  managerId            String?
+  status               String   @default("DRAFT")
+  overallSelfRating    Float?
+  overallManagerRating Float?
+  selfComments         String?
+  managerComments      String?
+  createdAt            DateTime @default(now())
+  cycle                AppraisalCycle @relation(fields: [cycleId], references: [id], onDelete: Cascade)
+  employee             User     @relation("EmployeeAppraisals", fields: [employeeId], references: [id])
+  objectives           AppraisalObjective[]
+  competencies         AppraisalCompetency[]
+  @@map("appraisal_forms")
+}
+
+model AppraisalObjective {
+  id             String   @id @default(uuid())
+  formId         String
+  title          String
+  description    String?
+  weight         Float    @default(1.0)
+  selfRating     Float?
+  managerRating  Float?
+  selfComment    String?
+  managerComment String?
+  form           AppraisalForm @relation(fields: [formId], references: [id], onDelete: Cascade)
+  @@map("appraisal_objectives")
+}
+
+model AppraisalCompetency {
+  id            String   @id @default(uuid())
+  formId        String
+  name          String
+  description   String?
+  selfRating    Float?
+  managerRating Float?
+  form          AppraisalForm @relation(fields: [formId], references: [id], onDelete: Cascade)
+  @@map("appraisal_competencies")
+}
+
+// ═════════════════════════════════════════════
+// SCENARIO PLANNING
+// ═════════════════════════════════════════════
+
+model Scenario {
+  id          String   @id @default(uuid())
+  tenantId    String
+  name        String
+  description String?
+  type        String   @default("BASE")
+  status      String   @default("DRAFT")
+  horizon     Int      @default(3)
+  probability Float    @default(0.5)
+  createdAt   DateTime @default(now())
+  assumptions ScenarioAssumption[]
+  kpiImpacts  ScenarioKPIImpact[]
+  @@map("scenarios")
+}
+
+model ScenarioAssumption {
+  id             String   @id @default(uuid())
+  scenarioId     String
+  parameter      String
+  description    String?
+  baselineValue  String?
+  projectedValue String?
+  impact         String   @default("MEDIUM")
+  scenario       Scenario @relation(fields: [scenarioId], references: [id], onDelete: Cascade)
+  @@map("scenario_assumptions")
+}
+
+model ScenarioKPIImpact {
+  id              String   @id @default(uuid())
+  scenarioId      String
+  kpiId           String
+  projectedValue  Float?
+  confidenceLevel Float    @default(0.7)
+  notes           String?
+  scenario        Scenario @relation(fields: [scenarioId], references: [id], onDelete: Cascade)
+  kpi             KPI      @relation(fields: [kpiId], references: [id], onDelete: Cascade)
+  @@unique([scenarioId, kpiId])
+  @@map("scenario_kpi_impacts")
 }

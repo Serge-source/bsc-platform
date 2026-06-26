@@ -37,6 +37,12 @@ const aiRoutes = require('./routes/ai');
 const uploadsRoutes = require('./routes/uploads');
 const adminRoutes = require('./routes/admin');
 const stripeRoutes = require('./routes/stripe');
+const okrsRoutes = require('./routes/okrs');
+const portfolioRoutes = require('./routes/portfolio');
+const bpmRoutes = require('./routes/bpm');
+const grcRoutes = require('./routes/grc');
+const appraisalsRoutes = require('./routes/appraisals');
+const scenariosRoutes = require('./routes/scenarios');
 
 const app = express();
 const server = http.createServer(app);
@@ -96,6 +102,12 @@ app.use('/api/notifications', authenticate, notificationsRoutes);
 app.use('/api/ai', authenticate, aiRoutes);
 app.use('/api/uploads', authenticate, uploadsRoutes);
 app.use('/api/admin', authenticate, adminRoutes);
+app.use('/api/okrs', authenticate, okrsRoutes);
+app.use('/api/portfolio', authenticate, portfolioRoutes);
+app.use('/api/bpm', authenticate, bpmRoutes);
+app.use('/api/grc', authenticate, grcRoutes);
+app.use('/api/appraisals', authenticate, appraisalsRoutes);
+app.use('/api/scenarios', authenticate, scenariosRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {

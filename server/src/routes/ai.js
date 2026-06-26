@@ -246,4 +246,100 @@ Create 4-6 themes with 2-4 objectives each. Make it specific and realistic for t
   }
 });
 
+// POST /api/ai/copilot — AI Copilot: smart strategic questions + executive report generation
+router.post('/copilot', async (req, res, next) => {
+  try {
+    const { question, type = 'question' } = req.body;
+
+    const [kpis, risks, initiatives, objectives, okrObjectives, scenarios] = await Promise.all([
+      prisma.kPI.findMany({
+        where: { tenantId: req.tenantId, status: 'ACTIVE' },
+        include: { values: { orderBy: { period: 'desc' }, take: 2 }, perspective: true, objective: { select: { name: true } } },
+        take: 30,
+      }),
+      prisma.risk.findMany({ where: { tenantId: req.tenantId, status: 'OPEN' }, include: { objective: { select: { name: true } } }, take: 20 }),
+      prisma.initiative.findMany({ where: { tenantId: req.tenantId }, take: 20 }),
+      prisma.strategicObjective.findMany({ where: { tenantId: req.tenantId }, include: { kpis: { include: { values: { orderBy: { period: 'desc' }, take: 1 } } } }, take: 20 }),
+      prisma.oKRObjective.findMany({ where: { tenantId: req.tenantId }, include: { keyResults: true }, take: 10 }).catch(() => []),
+      prisma.scenario.findMany({ where: { tenantId: req.tenantId }, include: { assumptions: true }, take: 5 }).catch(() => []),
+    ]);
+
+    // Compute at-risk objectives
+    const atRiskObjectives = objectives.filter(obj => {
+      const kpiStatuses = obj.kpis.map(k => k.values[0]?.status).filter(Boolean);
+      return kpiStatuses.some(s => s === 'RED' || s === 'CRITICAL');
+    });
+
+    const contextData = {
+      kpis: kpis.map(k => ({
+        name: k.name,
+        perspective: k.perspective?.name,
+        objective: k.objective?.name,
+        target: k.target,
+        unit: k.unit,
+        latestActual: k.values[0]?.actual,
+        latestStatus: k.values[0]?.status,
+        trend: k.values.length >= 2 ? (k.values[0]?.actual > k.values[1]?.actual ? 'improving' : 'declining') : 'insufficient data',
+      })),
+      risks: risks.map(r => ({ name: r.name, likelihood: r.likelihood, impact: r.impact, objective: r.objective?.name, score: r.likelihood * r.impact })),
+      initiatives: initiatives.map(i => ({ name: i.name, status: i.status, completion: i.completion, budget: i.budget, spent: i.spent })),
+      atRiskObjectives: atRiskObjectives.map(o => o.name),
+      okrObjectives: okrObjectives.map(o => ({ title: o.title, progress: o.progress, level: o.level })),
+      scenarios: scenarios.map(s => ({ name: s.name, type: s.type, probability: s.probability })),
+    };
+
+    const systemPrompt = `You are an AI Copilot for an Enterprise Performance Management platform.
+You have deep expertise in Balanced Scorecard, OKRs, risk management, and strategic planning.
+You provide concise, actionable, data-driven insights to executives and managers.
+Format responses with clear structure using markdown headings and bullet points.
+Be specific, quantitative when possible, and always prioritize actionability.`;
+
+    const userPrompt = type === 'report'
+      ? `Generate a comprehensive quarterly executive performance report based on this organizational data.
+
+Data: ${JSON.stringify(contextData, null, 2)}
+
+Structure the report as:
+# Quarterly Executive Report
+## Executive Summary (3-4 sentences with key highlights)
+## Performance by BSC Perspective
+## At-Risk Strategic Objectives
+## Top Risks & Mitigations
+## Initiative Portfolio Status
+## Key Recommendations for Next Quarter
+
+Be specific with numbers and percentages.`
+      : `${question}
+
+Use this real organizational data to answer precisely:
+${JSON.stringify(contextData, null, 2)}
+
+Provide a structured, actionable answer. Reference specific KPIs, objectives, or initiatives by name where relevant.`;
+
+    const response = await client.messages.create({
+      model: 'claude-sonnet-4-6',
+      max_tokens: 2500,
+      system: systemPrompt,
+      messages: [{ role: 'user', content: userPrompt }],
+    });
+
+    res.json({ answer: response.content[0].text, generatedAt: new Date().toISOString(), dataSnapshot: { kpis: kpis.length, risks: risks.length, initiatives: initiatives.length, atRiskObjectives: atRiskObjectives.length } });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// GET /api/ai/conversations — list saved conversations
+router.get('/conversations', async (req, res, next) => {
+  try {
+    const conversations = await prisma.aIConversation.findMany({
+      where: { tenantId: req.tenantId },
+      select: { id: true, title: true, createdAt: true, updatedAt: true },
+      orderBy: { updatedAt: 'desc' },
+      take: 20,
+    });
+    res.json(conversations);
+  } catch (err) { next(err); }
+});
+
 module.exports = router;

@@ -3,22 +3,46 @@ import { useState } from 'react'
 import {
   LayoutDashboard, Target, ClipboardList, BarChart2, Rocket,
   Shield, FileText, Users, Settings, Bot, ChevronLeft, Menu,
-  Bell, LogOut, Calendar, ChevronDown, Building2
+  Bell, LogOut, Calendar, ChevronDown, Building2,
+  GitBranch, Briefcase, ShieldCheck, UserCheck, TrendingUp, Database, Zap
 } from 'lucide-react'
 import { useAuthStore } from '../../store/authStore'
 import { api } from '../../lib/api'
 import clsx from 'clsx'
 
-const navItems = [
-  { to: '/dashboard', icon: LayoutDashboard, label: 'Executive Dashboard', perm: 'dashboard' },
-  { to: '/strategy', icon: Target, label: 'Strategy', perm: 'strategy' },
-  { to: '/scorecards', icon: ClipboardList, label: 'Scorecards', perm: 'scorecards' },
-  { to: '/kpis', icon: BarChart2, label: 'KPIs', perm: 'kpis' },
-  { to: '/initiatives', icon: Rocket, label: 'Initiatives', perm: 'initiatives' },
-  { to: '/risks', icon: Shield, label: 'Risks', perm: 'risks' },
-  { to: '/meetings', icon: Calendar, label: 'Meetings', perm: 'meetings' },
-  { to: '/reports', icon: FileText, label: 'Reports', perm: 'reports' },
-  { to: '/ai', icon: Bot, label: 'AI Assistant', perm: 'ai' },
+const navGroups = [
+  {
+    label: 'Core',
+    items: [
+      { to: '/dashboard', icon: LayoutDashboard, label: 'Executive Dashboard', perm: 'dashboard' },
+      { to: '/strategy', icon: Target, label: 'Strategy', perm: 'strategy' },
+      { to: '/scorecards', icon: ClipboardList, label: 'Scorecards', perm: 'scorecards' },
+      { to: '/kpis', icon: BarChart2, label: 'KPIs', perm: 'kpis' },
+      { to: '/initiatives', icon: Rocket, label: 'Initiatives', perm: 'initiatives' },
+      { to: '/risks', icon: Shield, label: 'Risks', perm: 'risks' },
+    ],
+  },
+  {
+    label: 'EPM Modules',
+    items: [
+      { to: '/okrs', icon: Target, label: 'OKRs', perm: 'okrs' },
+      { to: '/portfolio', icon: Briefcase, label: 'Portfolio / PPM', perm: 'portfolio' },
+      { to: '/bpm', icon: GitBranch, label: 'Business Processes', perm: 'bpm' },
+      { to: '/grc', icon: ShieldCheck, label: 'GRC', perm: 'grc' },
+      { to: '/appraisals', icon: UserCheck, label: 'Appraisals', perm: 'appraisals' },
+      { to: '/scenarios', icon: TrendingUp, label: 'Scenario Planning', perm: 'scenarios' },
+      { to: '/bi', icon: Database, label: 'Business Intelligence', perm: 'bi' },
+      { to: '/copilot', icon: Zap, label: 'AI Copilot', perm: 'ai' },
+    ],
+  },
+  {
+    label: 'Workspace',
+    items: [
+      { to: '/meetings', icon: Calendar, label: 'Meetings', perm: 'meetings' },
+      { to: '/reports', icon: FileText, label: 'Reports', perm: 'reports' },
+      { to: '/ai', icon: Bot, label: 'AI Assistant', perm: 'ai' },
+    ],
+  },
 ]
 
 const adminItems = [
@@ -71,35 +95,45 @@ export default function AppLayout() {
 
         {/* Nav */}
         <nav className="flex-1 overflow-y-auto px-2 py-4 space-y-0.5">
-          {navItems.filter(item => canSee(item.perm)).map(({ to, icon: Icon, label }) => (
-            <NavLink
-              key={to}
-              to={to}
-              className={({ isActive }) =>
-                clsx('sidebar-nav-item', isActive && 'active')
-              }
-              title={collapsed ? label : undefined}
-            >
-              <Icon size={18} className="flex-shrink-0" />
-              {!collapsed && <span className="truncate">{label}</span>}
-            </NavLink>
-          ))}
+          {navGroups.map(group => {
+            const visible = group.items.filter(item => canSee(item.perm))
+            if (!visible.length) return null
+            return (
+              <div key={group.label}>
+                {!collapsed && (
+                  <p className="px-3 pt-3 pb-1 text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                    {group.label}
+                  </p>
+                )}
+                {collapsed && <div className="border-t border-gray-100 my-1" />}
+                {visible.map(({ to, icon: Icon, label }) => (
+                  <NavLink
+                    key={to}
+                    to={to}
+                    className={({ isActive }) => clsx('sidebar-nav-item', isActive && 'active')}
+                    title={collapsed ? label : undefined}
+                  >
+                    <Icon size={18} className="flex-shrink-0" />
+                    {!collapsed && <span className="truncate">{label}</span>}
+                  </NavLink>
+                ))}
+              </div>
+            )
+          })}
 
           {adminItems.some(item => canSee(item.perm)) && (
             <>
               {!collapsed && (
-                <p className="px-3 pt-4 pb-1 text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                <p className="px-3 pt-3 pb-1 text-xs font-semibold text-gray-400 uppercase tracking-wider">
                   Admin
                 </p>
               )}
-              {collapsed && <div className="border-t border-gray-100 my-2" />}
+              {collapsed && <div className="border-t border-gray-100 my-1" />}
               {adminItems.filter(item => canSee(item.perm)).map(({ to, icon: Icon, label }) => (
                 <NavLink
                   key={to}
                   to={to}
-                  className={({ isActive }) =>
-                    clsx('sidebar-nav-item', isActive && 'active')
-                  }
+                  className={({ isActive }) => clsx('sidebar-nav-item', isActive && 'active')}
                   title={collapsed ? label : undefined}
                 >
                   <Icon size={18} className="flex-shrink-0" />
