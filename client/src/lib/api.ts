@@ -81,6 +81,7 @@ export const aiApi = {
   chat: (message: string, conversationId?: string) => api.post('/ai/chat', { message, conversationId }),
   generateReport: (type: string, period?: string) => api.post('/ai/generate-report', { type, period }),
   forecast: (kpiId: string, periods?: number) => api.post('/ai/forecast', { kpiId, periods }),
+  generateStrategy: (data: unknown) => api.post('/ai/generate-strategy', data),
 }
 
 export const userApi = {

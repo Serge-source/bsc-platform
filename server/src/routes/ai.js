@@ -172,4 +172,78 @@ Format as JSON: { predictions: [{period, value, confidence}], trend, analysis, r
   }
 });
 
+// POST /api/ai/generate-strategy — AI-assisted strategic plan draft
+router.post('/generate-strategy', async (req, res, next) => {
+  try {
+    const { orgType, industry, priorities, challenges, framework, orgName } = req.body;
+
+    const response = await client.messages.create({
+      model: 'claude-sonnet-4-6',
+      max_tokens: 4000,
+      system: `You are a world-class strategic planning expert specializing in the Balanced Scorecard methodology by Kaplan & Norton. Generate comprehensive, realistic strategic plans for organizations.`,
+      messages: [{
+        role: 'user',
+        content: `Generate a complete strategic plan draft for the following organization:
+
+Organization Name: ${orgName || 'The Organization'}
+Organization Type: ${orgType}
+Industry/Sector: ${industry}
+Top Priorities: ${priorities}
+Key Challenges: ${challenges}
+Strategic Framework: ${framework || 'Balanced Scorecard'}
+
+Return ONLY valid JSON with this exact structure (no markdown, no explanation, just JSON):
+{
+  "name": "strategic plan name (e.g. 2027-2030 Digital Transformation Strategy)",
+  "description": "brief description of the plan",
+  "vision": "inspiring vision statement (1-2 sentences)",
+  "mission": "clear mission statement (1-2 sentences)",
+  "values": ["Value1", "Value2", "Value3", "Value4", "Value5"],
+  "themes": [
+    {
+      "name": "theme name",
+      "description": "theme description",
+      "color": "#hexcolor",
+      "objectives": [
+        {
+          "name": "objective name",
+          "description": "detailed description with measurable target",
+          "perspectiveName": "Financial|Customer|Internal Processes|Learning & Growth",
+          "priority": "HIGH|MEDIUM|LOW",
+          "owner": "suggested owner role",
+          "kpis": [
+            {"name": "KPI name", "unit": "unit of measure", "target": numeric_target}
+          ],
+          "initiatives": [
+            {"name": "initiative name", "description": "brief description"}
+          ],
+          "risks": [
+            {"name": "risk name", "likelihood": 1-5, "impact": 1-5, "mitigation": "mitigation strategy"}
+          ]
+        }
+      ]
+    }
+  ]
+}
+
+Create 4-6 themes with 2-4 objectives each. Make it specific and realistic for the organization type and industry. Use appropriate hex colors for themes.`,
+      }],
+    });
+
+    const text = response.content[0].text;
+    let result;
+    try {
+      const jsonMatch = text.match(/\{[\s\S]*\}/);
+      result = jsonMatch ? JSON.parse(jsonMatch[0]) : null;
+      if (!result) throw new Error('No JSON found');
+    } catch {
+      return res.status(422).json({ error: 'AI could not generate a valid plan. Please try again.' });
+    }
+
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+});
+
 module.exports = router;
