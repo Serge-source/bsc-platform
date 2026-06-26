@@ -70,6 +70,12 @@ router.put('/:id', async (req, res, next) => {
       data,
       select: { id: true, email: true, firstName: true, lastName: true, title: true, avatar: true },
     });
+    if (Array.isArray(roleIds)) {
+      await prisma.userRole.deleteMany({ where: { userId: req.params.id } });
+      if (roleIds.length > 0) {
+        await prisma.userRole.createMany({ data: roleIds.map((id) => ({ userId: req.params.id, roleId: id })) });
+      }
+    }
     res.json(user);
   } catch (err) { next(err); }
 });

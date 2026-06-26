@@ -10,26 +10,29 @@ import { api } from '../../lib/api'
 import clsx from 'clsx'
 
 const navItems = [
-  { to: '/dashboard', icon: LayoutDashboard, label: 'Executive Dashboard' },
-  { to: '/strategy', icon: Target, label: 'Strategy' },
-  { to: '/scorecards', icon: ClipboardList, label: 'Scorecards' },
-  { to: '/kpis', icon: BarChart2, label: 'KPIs' },
-  { to: '/initiatives', icon: Rocket, label: 'Initiatives' },
-  { to: '/risks', icon: Shield, label: 'Risks' },
-  { to: '/meetings', icon: Calendar, label: 'Meetings' },
-  { to: '/reports', icon: FileText, label: 'Reports' },
-  { to: '/ai', icon: Bot, label: 'AI Assistant' },
+  { to: '/dashboard', icon: LayoutDashboard, label: 'Executive Dashboard', perm: 'dashboard' },
+  { to: '/strategy', icon: Target, label: 'Strategy', perm: 'strategy' },
+  { to: '/scorecards', icon: ClipboardList, label: 'Scorecards', perm: 'scorecards' },
+  { to: '/kpis', icon: BarChart2, label: 'KPIs', perm: 'kpis' },
+  { to: '/initiatives', icon: Rocket, label: 'Initiatives', perm: 'initiatives' },
+  { to: '/risks', icon: Shield, label: 'Risks', perm: 'risks' },
+  { to: '/meetings', icon: Calendar, label: 'Meetings', perm: 'meetings' },
+  { to: '/reports', icon: FileText, label: 'Reports', perm: 'reports' },
+  { to: '/ai', icon: Bot, label: 'AI Assistant', perm: 'ai' },
 ]
 
 const adminItems = [
-  { to: '/users', icon: Users, label: 'Users' },
-  { to: '/settings', icon: Settings, label: 'Settings' },
+  { to: '/users', icon: Users, label: 'Users', perm: 'users' },
+  { to: '/roles', icon: Shield, label: 'Roles & Permissions', perm: 'roles' },
+  { to: '/settings', icon: Settings, label: 'Settings', perm: 'settings' },
 ]
 
 export default function AppLayout() {
   const [collapsed, setCollapsed] = useState(false)
   const [userMenuOpen, setUserMenuOpen] = useState(false)
-  const { user, logout } = useAuthStore()
+  const { user, logout, hasPermission, hasRole } = useAuthStore()
+  const isAdmin = hasRole('Admin')
+  const canSee = (perm: string) => isAdmin || hasPermission('nav', perm)
   const navigate = useNavigate()
 
   const handleLogout = async () => {
@@ -68,7 +71,7 @@ export default function AppLayout() {
 
         {/* Nav */}
         <nav className="flex-1 overflow-y-auto px-2 py-4 space-y-0.5">
-          {navItems.map(({ to, icon: Icon, label }) => (
+          {navItems.filter(item => canSee(item.perm)).map(({ to, icon: Icon, label }) => (
             <NavLink
               key={to}
               to={to}
@@ -82,7 +85,7 @@ export default function AppLayout() {
             </NavLink>
           ))}
 
-          {user?.roles.includes('Admin') && (
+          {adminItems.some(item => canSee(item.perm)) && (
             <>
               {!collapsed && (
                 <p className="px-3 pt-4 pb-1 text-xs font-semibold text-gray-400 uppercase tracking-wider">
@@ -90,7 +93,7 @@ export default function AppLayout() {
                 </p>
               )}
               {collapsed && <div className="border-t border-gray-100 my-2" />}
-              {adminItems.map(({ to, icon: Icon, label }) => (
+              {adminItems.filter(item => canSee(item.perm)).map(({ to, icon: Icon, label }) => (
                 <NavLink
                   key={to}
                   to={to}
@@ -123,7 +126,9 @@ export default function AppLayout() {
                     <p className="text-sm font-medium text-gray-900 truncate">
                       {user?.firstName} {user?.lastName}
                     </p>
-                    <p className="text-xs text-gray-500 truncate">{user?.email}</p>
+                    <p className="text-xs text-gray-400 truncate">
+                      {user?.roles?.[0] ?? 'User'}
+                    </p>
                   </div>
                   <ChevronDown size={14} className="text-gray-400 flex-shrink-0" />
                 </>

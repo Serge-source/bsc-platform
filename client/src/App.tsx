@@ -12,6 +12,7 @@ import InitiativesPage from './pages/InitiativesPage'
 import RisksPage from './pages/RisksPage'
 import ReportsPage from './pages/ReportsPage'
 import UsersPage from './pages/UsersPage'
+import RolesPage from './pages/RolesPage'
 import SettingsPage from './pages/SettingsPage'
 import AIAssistantPage from './pages/AIAssistantPage'
 import MeetingsPage from './pages/MeetingsPage'
@@ -19,6 +20,12 @@ import MeetingsPage from './pages/MeetingsPage'
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const user = useAuthStore((s) => s.user)
   return user ? <>{children}</> : <Navigate to="/login" replace />
+}
+
+const NavRoute = ({ perm, children }: { perm: string; children: React.ReactNode }) => {
+  const { hasPermission, hasRole } = useAuthStore()
+  if (hasRole('Admin') || hasPermission('nav', perm)) return <>{children}</>
+  return <Navigate to="/dashboard" replace />
 }
 
 export default function App() {
@@ -36,18 +43,19 @@ export default function App() {
           }
         >
           <Route index element={<Navigate to="/dashboard" replace />} />
-          <Route path="dashboard" element={<ExecutiveDashboard />} />
-          <Route path="strategy" element={<StrategyPage />} />
-          <Route path="scorecards" element={<ScorecardsPage />} />
-          <Route path="kpis" element={<KPIsPage />} />
-          <Route path="kpis/:id" element={<KPIDetailPage />} />
-          <Route path="initiatives" element={<InitiativesPage />} />
-          <Route path="risks" element={<RisksPage />} />
-          <Route path="meetings" element={<MeetingsPage />} />
-          <Route path="reports" element={<ReportsPage />} />
-          <Route path="ai" element={<AIAssistantPage />} />
-          <Route path="users" element={<UsersPage />} />
-          <Route path="settings" element={<SettingsPage />} />
+          <Route path="dashboard" element={<NavRoute perm="dashboard"><ExecutiveDashboard /></NavRoute>} />
+          <Route path="strategy" element={<NavRoute perm="strategy"><StrategyPage /></NavRoute>} />
+          <Route path="scorecards" element={<NavRoute perm="scorecards"><ScorecardsPage /></NavRoute>} />
+          <Route path="kpis" element={<NavRoute perm="kpis"><KPIsPage /></NavRoute>} />
+          <Route path="kpis/:id" element={<NavRoute perm="kpis"><KPIDetailPage /></NavRoute>} />
+          <Route path="initiatives" element={<NavRoute perm="initiatives"><InitiativesPage /></NavRoute>} />
+          <Route path="risks" element={<NavRoute perm="risks"><RisksPage /></NavRoute>} />
+          <Route path="meetings" element={<NavRoute perm="meetings"><MeetingsPage /></NavRoute>} />
+          <Route path="reports" element={<NavRoute perm="reports"><ReportsPage /></NavRoute>} />
+          <Route path="ai" element={<NavRoute perm="ai"><AIAssistantPage /></NavRoute>} />
+          <Route path="users" element={<NavRoute perm="users"><UsersPage /></NavRoute>} />
+          <Route path="roles" element={<NavRoute perm="roles"><RolesPage /></NavRoute>} />
+          <Route path="settings" element={<NavRoute perm="settings"><SettingsPage /></NavRoute>} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

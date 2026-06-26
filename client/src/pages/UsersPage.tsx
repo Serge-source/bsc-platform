@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Plus, Search, Users, Shield, ToggleLeft, ToggleRight } from 'lucide-react'
-import { userApi } from '../lib/api'
+import { Plus, Search, Users, Shield, ToggleLeft, ToggleRight, Pencil } from 'lucide-react'
+import { userApi, rolesApi } from '../lib/api'
 import { api } from '../lib/api'
 import Modal from '../components/ui/Modal'
 import Table from '../components/ui/Table'
@@ -9,8 +9,32 @@ import toast from 'react-hot-toast'
 import clsx from 'clsx'
 import { format } from 'date-fns'
 
+function RoleCheckboxes({ selected, onChange }: { selected: string[]; onChange: (ids: string[]) => void }) {
+  const { data: roles = [] } = useQuery<any[]>({ queryKey: ['roles'], queryFn: () => rolesApi.list().then(r => r.data) })
+  const toggle = (id: string) => onChange(selected.includes(id) ? selected.filter(x => x !== id) : [...selected, id])
+  return (
+    <div className="flex flex-wrap gap-2">
+      {roles.map((r: any) => (
+        <button
+          key={r.id}
+          type="button"
+          onClick={() => toggle(r.id)}
+          className={clsx(
+            'px-3 py-1.5 rounded-full text-sm font-medium border transition-colors',
+            selected.includes(r.id)
+              ? 'bg-brand-600 text-white border-brand-600'
+              : 'bg-white text-gray-600 border-gray-300 hover:border-brand-400'
+          )}
+        >
+          {r.name}
+        </button>
+      ))}
+    </div>
+  )
+}
+
 function UserForm({ onSubmit, onCancel, loading }: any) {
-  const [form, setForm] = useState({ firstName: '', lastName: '', email: '', password: '', title: '', departmentId: '' })
+  const [form, setForm] = useState({ firstName: '', lastName: '', email: '', password: '', title: '', departmentId: '', roleIds: [] as string[] })
   const set = (f: string) => (e: any) => setForm(p => ({ ...p, [f]: e.target.value }))
   const { data } = useQuery({ queryKey: ['departments'], queryFn: () => api.get('/departments').then(r => r.data) })
   const depts = data?.items || []
@@ -33,6 +57,10 @@ function UserForm({ onSubmit, onCancel, loading }: any) {
           </select>
         </div>
       </div>
+      <div>
+        <label className="label">Roles</label>
+        <RoleCheckboxes selected={form.roleIds} onChange={ids => setForm(p => ({ ...p, roleIds: ids }))} />
+      </div>
       <div className="flex justify-end gap-3 pt-2">
         <button type="button" onClick={onCancel} className="btn-secondary">Cancel</button>
         <button type="submit" className="btn-primary" disabled={loading}>{loading ? 'Creating…' : 'Create User'}</button>
@@ -41,9 +69,36 @@ function UserForm({ onSubmit, onCancel, loading }: any) {
   )
 }
 
+function EditRolesModal({ user, onClose }: { user: any; onClose: () => void }) {
+  const qc = useQueryClient()
+  const currentRoleIds = user.roles?.map((ur: any) => ur.role.id) ?? []
+  const [roleIds, setRoleIds] = useState<string[]>(currentRoleIds)
+
+  const saveMutation = useMutation({
+    mutationFn: () => userApi.update(user.id, { roleIds }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['users'] }); toast.success('Roles updated'); onClose() },
+    onError: () => toast.error('Failed'),
+  })
+
+  return (
+    <Modal open onClose={onClose} title={`Roles — ${user.firstName} ${user.lastName}`} size="sm">
+      <div className="space-y-4">
+        <RoleCheckboxes selected={roleIds} onChange={setRoleIds} />
+        <div className="flex justify-end gap-3 pt-2">
+          <button onClick={onClose} className="btn-secondary">Cancel</button>
+          <button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending} className="btn-primary">
+            {saveMutation.isPending ? 'Saving…' : 'Save Roles'}
+          </button>
+        </div>
+      </div>
+    </Modal>
+  )
+}
+
 export default function UsersPage() {
   const [search, setSearch] = useState('')
   const [showCreate, setShowCreate] = useState(false)
+  const [editRolesUser, setEditRolesUser] = useState<any>(null)
   const qc = useQueryClient()
 
   const { data, isLoading } = useQuery({
@@ -114,15 +169,24 @@ export default function UsersPage() {
       render: (u: any) => <span className="text-xs text-gray-500">{u.lastLoginAt ? format(new Date(u.lastLoginAt), 'MMM d, yyyy') : 'Never'}</span>,
     },
     {
-      key: 'actions', header: '', width: '60px',
+      key: 'actions', header: '', width: '90px',
       render: (u: any) => (
-        <button
-          onClick={e => { e.stopPropagation(); toggleMutation.mutate(u.id) }}
-          className="p-1 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-700"
-          title={u.isActive ? 'Deactivate' : 'Activate'}
-        >
-          {u.isActive ? <ToggleRight size={18} className="text-green-500" /> : <ToggleLeft size={18} />}
-        </button>
+        <div className="flex items-center gap-1">
+          <button
+            onClick={e => { e.stopPropagation(); setEditRolesUser(u) }}
+            className="p-1 rounded hover:bg-gray-100 text-gray-400 hover:text-brand-600"
+            title="Edit roles"
+          >
+            <Shield size={16} />
+          </button>
+          <button
+            onClick={e => { e.stopPropagation(); toggleMutation.mutate(u.id) }}
+            className="p-1 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-700"
+            title={u.isActive ? 'Deactivate' : 'Activate'}
+          >
+            {u.isActive ? <ToggleRight size={18} className="text-green-500" /> : <ToggleLeft size={18} />}
+          </button>
+        </div>
       ),
     },
   ]
@@ -155,6 +219,8 @@ export default function UsersPage() {
       <Modal open={showCreate} onClose={() => setShowCreate(false)} title="Create User" size="md">
         <UserForm onSubmit={createMutation.mutate} onCancel={() => setShowCreate(false)} loading={createMutation.isPending} />
       </Modal>
+
+      {editRolesUser && <EditRolesModal user={editRolesUser} onClose={() => setEditRolesUser(null)} />}
     </div>
   )
 }

@@ -55,26 +55,98 @@ async function main() {
     await prisma.perspective.upsert({ where: { id: p.id }, update: {}, create: { ...p, tenantId: tenant.id, isDefault: true } });
   }
 
+  // Permissions
+  const permDefs = [
+    { resource: '*', action: '*', description: 'Full system access' },
+    // Navigation
+    { resource: 'nav', action: 'dashboard', description: 'Executive Dashboard' },
+    { resource: 'nav', action: 'strategy', description: 'Strategy Map' },
+    { resource: 'nav', action: 'scorecards', description: 'Scorecards' },
+    { resource: 'nav', action: 'kpis', description: 'KPIs' },
+    { resource: 'nav', action: 'initiatives', description: 'Initiatives' },
+    { resource: 'nav', action: 'risks', description: 'Risks' },
+    { resource: 'nav', action: 'meetings', description: 'Meetings' },
+    { resource: 'nav', action: 'reports', description: 'Reports' },
+    { resource: 'nav', action: 'ai', description: 'AI Assistant' },
+    { resource: 'nav', action: 'users', description: 'User Management' },
+    { resource: 'nav', action: 'roles', description: 'Roles & Permissions' },
+    { resource: 'nav', action: 'settings', description: 'Settings' },
+    // Data
+    { resource: 'kpis', action: 'read', description: 'View KPIs' },
+    { resource: 'kpis', action: 'write', description: 'Create / Edit KPIs' },
+    { resource: 'kpis', action: 'delete', description: 'Delete KPIs' },
+    { resource: 'risks', action: 'read', description: 'View Risks' },
+    { resource: 'risks', action: 'write', description: 'Create / Edit Risks' },
+    { resource: 'risks', action: 'delete', description: 'Delete Risks' },
+    { resource: 'initiatives', action: 'read', description: 'View Initiatives' },
+    { resource: 'initiatives', action: 'write', description: 'Create / Edit Initiatives' },
+    { resource: 'initiatives', action: 'delete', description: 'Delete Initiatives' },
+    { resource: 'strategy', action: 'read', description: 'View Strategy' },
+    { resource: 'strategy', action: 'write', description: 'Edit Strategy' },
+    { resource: 'reports', action: 'read', description: 'View Reports' },
+    { resource: 'reports', action: 'write', description: 'Generate Reports' },
+    { resource: 'ai', action: 'use', description: 'Use AI Assistant' },
+    { resource: 'users', action: 'manage', description: 'Manage Users' },
+    { resource: 'settings', action: 'manage', description: 'Manage Settings' },
+  ];
+
+  const permMap = {};
+  for (const p of permDefs) {
+    const perm = await prisma.permission.upsert({
+      where: { resource_action: { resource: p.resource, action: p.action } },
+      update: { description: p.description },
+      create: p,
+    });
+    permMap[`${p.resource}:${p.action}`] = perm.id;
+  }
+
   // Admin role
   const adminRole = await prisma.role.upsert({
     where: { tenantId_name: { tenantId: tenant.id, name: 'Admin' } },
-    update: {},
-    create: { tenantId: tenant.id, name: 'Admin', isSystem: true },
+    update: { description: 'Full access to all features and settings' },
+    create: { tenantId: tenant.id, name: 'Admin', description: 'Full access to all features and settings', isSystem: true },
   });
 
   // Viewer role
   const viewerRole = await prisma.role.upsert({
     where: { tenantId_name: { tenantId: tenant.id, name: 'Viewer' } },
-    update: {},
-    create: { tenantId: tenant.id, name: 'Viewer', isSystem: true },
+    update: { description: 'Read-only access to dashboards, KPIs and reports' },
+    create: { tenantId: tenant.id, name: 'Viewer', description: 'Read-only access to dashboards, KPIs and reports', isSystem: true },
   });
 
   // Manager role
   const managerRole = await prisma.role.upsert({
     where: { tenantId_name: { tenantId: tenant.id, name: 'Manager' } },
-    update: {},
-    create: { tenantId: tenant.id, name: 'Manager', isSystem: true },
+    update: { description: 'Can view and edit KPIs, risks, initiatives and meetings' },
+    create: { tenantId: tenant.id, name: 'Manager', description: 'Can view and edit KPIs, risks, initiatives and meetings', isSystem: true },
   });
+
+  // Assign permissions to roles
+  const assignPerms = async (roleId, keys) => {
+    for (const key of keys) {
+      if (!permMap[key]) continue;
+      await prisma.rolePermission.upsert({
+        where: { roleId_permissionId: { roleId, permissionId: permMap[key] } },
+        update: {},
+        create: { roleId, permissionId: permMap[key] },
+      });
+    }
+  };
+
+  await assignPerms(adminRole.id, ['*:*']);
+
+  await assignPerms(managerRole.id, [
+    'nav:dashboard', 'nav:strategy', 'nav:scorecards', 'nav:kpis',
+    'nav:initiatives', 'nav:risks', 'nav:meetings', 'nav:reports', 'nav:ai',
+    'kpis:read', 'kpis:write', 'risks:read', 'risks:write',
+    'initiatives:read', 'initiatives:write', 'strategy:read',
+    'reports:read', 'reports:write', 'ai:use',
+  ]);
+
+  await assignPerms(viewerRole.id, [
+    'nav:dashboard', 'nav:scorecards', 'nav:kpis', 'nav:risks', 'nav:reports',
+    'kpis:read', 'risks:read', 'initiatives:read', 'strategy:read', 'reports:read',
+  ]);
 
   // Admin user
   const adminUser = await prisma.user.upsert({

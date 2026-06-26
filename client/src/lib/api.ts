@@ -90,3 +90,11 @@ export const userApi = {
   update: (id: string, data: unknown) => api.put(`/users/${id}`, data),
   toggleActive: (id: string) => api.patch(`/users/${id}/toggle-active`),
 }
+
+export const rolesApi = {
+  list: () => api.get('/roles'),
+  create: (data: unknown) => api.post('/roles', data),
+  update: (id: string, data: unknown) => api.put(`/roles/${id}`, data),
+  delete: (id: string) => api.delete(`/roles/${id}`),
+  allPermissions: () => api.get('/roles/permissions/all'),
+}

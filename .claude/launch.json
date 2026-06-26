@@ -3,8 +3,8 @@
   "configurations": [
     {
       "name": "bsc-client",
-      "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev"],
+      "runtimeExecutable": "/Users/apple/Projects/2026 Strategic Management BSC/bsc-platform/client/node_modules/.bin/vite",
+      "runtimeArgs": ["--port", "5173"],
       "port": 5173,
       "cwd": "/Users/apple/Projects/2026 Strategic Management BSC/bsc-platform/client"
     }
