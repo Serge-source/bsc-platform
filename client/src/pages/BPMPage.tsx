@@ -42,6 +42,11 @@ export default function BPMPage() {
     mutationFn: (id: string) => bpmApi.delete(id),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['bpm'] }); if (selected) setSelected(null) },
   })
+  const delStep = useMutation({
+    mutationFn: (id: string) => bpmApi.deleteStep(id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['bpm'] }),
+    onError: (err: any) => alert('Failed to delete step: ' + (err?.response?.data?.message || err?.message)),
+  })
   const addStep = useMutation({
     mutationFn: ({ processId, data }: any) => bpmApi.addStep(processId, data),
     onSuccess: (_data, vars) => {
@@ -125,6 +130,10 @@ export default function BPMPage() {
                           {step.duration && (
                             <div className="absolute -top-5 left-0 right-0 text-center text-xs text-gray-400">{step.duration}min</div>
                           )}
+                          <button
+                            onClick={() => delStep.mutate(step.id)}
+                            className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 text-white rounded-full items-center justify-center text-xs hidden group-hover:flex hover:bg-red-600"
+                          >×</button>
                         </div>
                         {idx < proc.steps.length - 1 && <ArrowRight size={14} className="text-gray-400" />}
                       </div>
