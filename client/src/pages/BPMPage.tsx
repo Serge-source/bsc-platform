@@ -29,7 +29,7 @@ export default function BPMPage() {
   const [owner, setOwner] = useState('')
   const [stepName, setStepName] = useState('')
   const [stepType, setStepType] = useState('TASK')
-  const [stepActor, setStepActor] = useState('')
+  const [stepResponsible, setStepResponsible] = useState('')
   const [expanded, setExpanded] = useState<Record<string, boolean>>({})
 
   const { data: processes = [], isLoading } = useQuery({ queryKey: ['bpm'], queryFn: () => bpmApi.list().then(r => r.data) })
@@ -110,7 +110,7 @@ export default function BPMPage() {
                         <div className="relative group">
                           <div className={`w-20 h-16 rounded-lg flex flex-col items-center justify-center ${STEP_TYPE_COLORS[step.type] || 'bg-gray-400'} text-white text-center p-1`}>
                             <span className="text-xs font-medium leading-tight">{step.name}</span>
-                            {step.actor && <span className="text-xs opacity-75 mt-0.5">{step.actor}</span>}
+                            {step.responsible && <span className="text-xs opacity-75 mt-0.5">{step.responsible}</span>}
                           </div>
                           {step.duration && (
                             <div className="absolute -top-5 left-0 right-0 text-center text-xs text-gray-400">{step.duration}min</div>
@@ -164,10 +164,10 @@ export default function BPMPage() {
               <option value="GATEWAY">Gateway</option>
               <option value="END">End</option>
             </select>
-            <input className="w-full border rounded-lg px-3 py-2 mb-4 text-sm" placeholder="Actor / Role" value={stepActor} onChange={e => setStepActor(e.target.value)} />
+            <input className="w-full border rounded-lg px-3 py-2 mb-4 text-sm" placeholder="Responsible / Role" value={stepResponsible} onChange={e => setStepResponsible(e.target.value)} />
             <div className="flex gap-2 justify-end">
               <button onClick={() => setShowStep(false)} className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg">Cancel</button>
-              <button onClick={() => addStep.mutate({ processId: selected.id, data: { name: stepName, type: stepType, actor: stepActor } })}
+              <button onClick={() => addStep.mutate({ processId: selected.id, data: { name: stepName, type: stepType, responsible: stepResponsible } })}
                 className="px-4 py-2 text-sm bg-orange-600 text-white rounded-lg hover:bg-orange-700">Add Step</button>
             </div>
           </div>
@@ -176,3 +176,4 @@ export default function BPMPage() {
     </div>
   )
 }
+
