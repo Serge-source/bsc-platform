@@ -31,7 +31,7 @@ const crudFactory = (model, options = {}) => {
   return {
     list: async (req, res, next) => {
       try {
-        const { page = 1, limit = 50, search, ...filters } = req.query;
+        const { page = 1, limit = 50, search, orderBy: _ob, sort: _sort, ...filters } = req.query;
         const skip = (Number(page) - 1) * Number(limit);
 
         const where = {
