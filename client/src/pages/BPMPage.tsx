@@ -44,7 +44,17 @@ export default function BPMPage() {
   })
   const addStep = useMutation({
     mutationFn: ({ processId, data }: any) => bpmApi.addStep(processId, data),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['bpm'] }); setShowStep(false); setStepName(''); setStepResponsible('') },
+    onSuccess: (_data, vars) => {
+      qc.invalidateQueries({ queryKey: ['bpm'] })
+      setShowStep(false)
+      setStepName('')
+      setStepResponsible('')
+      // Auto-expand the process so the new step is visible
+      setExpanded(e => ({ ...e, [vars.processId]: true }))
+    },
+    onError: (err: any) => {
+      alert('Failed to add step: ' + (err?.response?.data?.message || err?.message || 'Unknown error'))
+    },
   })
 
   return (
